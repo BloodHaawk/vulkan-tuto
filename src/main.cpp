@@ -9,29 +9,18 @@
 
 #include <iostream>
 
-int main() {
-    glfwInit();
+#include "application.h"
 
-    glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-    GLFWwindow *window = glfwCreateWindow(800, 600, "Vulkan Window", nullptr, nullptr);
+int main()
+{
+    Application app;
 
-    std::cout << "Instance extensions:" << std::endl;
-    for (auto const &property : vk::enumerateInstanceExtensionProperties()) {
-        std::cout << property.extensionName << ":" << std::endl;
-        std::cout << "\tVersion: " << property.specVersion << std::endl;
-        std::cout << std::endl;
+    try {
+        app.run();
+    } catch (const std::exception &e) {
+        std::cerr << e.what() << '\n';
+        return EXIT_FAILURE;
     }
 
-    glm::mat4 matrix;
-    glm::vec4 vector;
-    auto test = matrix * vector;
-
-    while (!glfwWindowShouldClose(window)) {
-        glfwPollEvents();
-    }
-
-    glfwDestroyWindow(window);
-    glfwTerminate();
-
-    return 0;
+    return EXIT_SUCCESS;
 }
