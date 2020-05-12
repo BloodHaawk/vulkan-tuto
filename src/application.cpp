@@ -104,6 +104,44 @@ void Application::setupDebugMessenger()
     }
 }
 
+QueueFamilyIndices findQueueFamilies(const vk::PhysicalDevice &device)
+{
+    QueueFamilyIndices indices;
+
+    unsigned int i = 0;
+    for (const auto &queue_family : device.getQueueFamilyProperties()) {
+        if (queue_family.queueFlags & vk::QueueFlagBits::eGraphics) {
+            indices.graphics_family = i;
+        }
+
+        if (indices.is_complete()) {
+            break;
+        }
+
+        i++;
+    }
+
+    return indices;
+}
+
+bool isDeviceSuitable(const vk::PhysicalDevice &device)
+{
+    QueueFamilyIndices indices = findQueueFamilies(device);
+    return indices.is_complete();
+}
+
+void Application::pickPhysicalDevice()
+{
+    auto devices = instance->enumeratePhysicalDevices();
+    auto it = std::find_if(
+        devices.cbegin(), devices.cend(), [&](const auto &device) { return isDeviceSuitable(device); });
+    if (it == devices.cend()) {
+        throw std::runtime_error("Failed to find a suitable GPU!");
+    }
+
+    physcial_device = *it;
+}
+
 void Application::mainLoop()
 {
     while (!glfwWindowShouldClose(window)) {

@@ -5,6 +5,14 @@
 
 #include <GLFW/glfw3.h>
 
+#include <optional>
+
+struct QueueFamilyIndices {
+    std::optional<unsigned int> graphics_family;
+
+    bool is_complete() { return graphics_family.has_value(); }
+};
+
 class Application
 {
   public:
@@ -39,14 +47,18 @@ class Application
     vk::DispatchLoaderDynamic dldy;
     vk::UniqueHandle<vk::DebugUtilsMessengerEXT, vk::DispatchLoaderDynamic> debug_messenger;
 
+    vk::PhysicalDevice physcial_device;
+
     void initVulkan()
     {
         createInstance();
         setupDebugMessenger();
+        pickPhysicalDevice();
     }
 
     void createInstance();
     void setupDebugMessenger();
+    void pickPhysicalDevice();
 
     void mainLoop();
 };
