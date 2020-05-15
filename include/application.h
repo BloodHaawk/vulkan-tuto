@@ -48,17 +48,22 @@ class Application
     vk::UniqueHandle<vk::DebugUtilsMessengerEXT, vk::DispatchLoaderDynamic> debug_messenger;
 
     vk::PhysicalDevice physcial_device;
+    vk::UniqueDevice device;
+
+    vk::Queue graphics_queue;
 
     void initVulkan()
     {
         createInstance();
         setupDebugMessenger();
         pickPhysicalDevice();
+        createLogicalDevice();
     }
 
     void createInstance();
     void setupDebugMessenger();
     void pickPhysicalDevice();
+    void createLogicalDevice();
 
     void mainLoop();
 };

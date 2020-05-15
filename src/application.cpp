@@ -72,35 +72,37 @@ void Application::createInstance()
 }
 
 static VKAPI_ATTR vk::Bool32 VKAPI_CALL
-debugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
-              VkDebugUtilsMessageTypeFlagsEXT /*messageType*/,
-              const VkDebugUtilsMessengerCallbackDataEXT *pCallbackData, void * /*pUserData*/)
+debugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT message_severity,
+              VkDebugUtilsMessageTypeFlagsEXT /*message_type*/,
+              const VkDebugUtilsMessengerCallbackDataEXT *callback_data, void * /*pUserData*/)
 {
     std::cerr << "validation layer: (severity: 0x" << std::setfill('0') << std::setw(4) << std::hex
-              << messageSeverity << ") " << pCallbackData->pMessage << std::endl;
+              << message_severity << ") " << callback_data->pMessage << std::endl;
     return VK_FALSE;
 }
 
 void Application::setupDebugMessenger()
 {
     if (enabled_validation_layers) {
-        auto messageSeverity = vk::DebugUtilsMessageSeverityFlagBitsEXT::eVerbose |
-                               vk::DebugUtilsMessageSeverityFlagBitsEXT::eInfo |
-                               vk::DebugUtilsMessageSeverityFlagBitsEXT::eWarning |
-                               vk::DebugUtilsMessageSeverityFlagBitsEXT::eError;
+        auto message_severity =
+            // vk::DebugUtilsMessageSeverityFlagBitsEXT::eVerbose |
+            // vk::DebugUtilsMessageSeverityFlagBitsEXT::eInfo |
+            vk::DebugUtilsMessageSeverityFlagBitsEXT::eWarning |
+            vk::DebugUtilsMessageSeverityFlagBitsEXT::eError;
 
-        auto messageType = vk::DebugUtilsMessageTypeFlagBitsEXT::eGeneral |
-                           vk::DebugUtilsMessageTypeFlagBitsEXT::eValidation |
-                           vk::DebugUtilsMessageTypeFlagBitsEXT::ePerformance;
+        auto message_type =
+            vk::DebugUtilsMessageTypeFlagBitsEXT::eGeneral |
+            vk::DebugUtilsMessageTypeFlagBitsEXT::eValidation |
+            vk::DebugUtilsMessageTypeFlagBitsEXT::ePerformance;
 
-        auto createInfo = vk::DebugUtilsMessengerCreateInfoEXT{
-            {},              // flags
-            messageSeverity, // messageSeverity
-            messageType,     // messageType
-            debugCallback    // debugCallback
+        auto create_info = vk::DebugUtilsMessengerCreateInfoEXT{
+            {},               // flags
+            message_severity, // messageSeverity
+            message_type,     // messageType
+            debugCallback     // debugCallback
         };
 
-        debug_messenger = instance->createDebugUtilsMessengerEXTUnique(createInfo, nullptr, dldy);
+        debug_messenger = instance->createDebugUtilsMessengerEXTUnique(create_info, nullptr, dldy);
     }
 }
 
@@ -140,6 +142,43 @@ void Application::pickPhysicalDevice()
     }
 
     physcial_device = *it;
+}
+
+void Application::createLogicalDevice()
+{
+    QueueFamilyIndices indices = findQueueFamilies(physcial_device);
+
+    float queue_priority = 1;
+    auto queue_create_info = vk::DeviceQueueCreateInfo{
+        {},                              // flags
+        indices.graphics_family.value(), // queueFamilyIndex,
+        1,                               // queueCount
+        &queue_priority                  // *queuePriorities
+    };
+
+    unsigned int enabled_layer_count = 0;
+    const char *const *enabled_layer_names;
+    if (enabled_validation_layers) {
+        enabled_layer_count = validation_layers.size();
+        enabled_layer_names = validation_layers.data();
+    } else {
+        enabled_layer_count = 0;
+        enabled_layer_names = nullptr;
+    }
+
+    auto extensions = getRequiredExtensions();
+
+    auto device_create_info = vk::DeviceCreateInfo{
+        {},                  // flags
+        1,                   // queueCreateInfoCount
+        &queue_create_info,  // *queueCreateInfos
+        enabled_layer_count, // enabledLayerCountr
+        enabled_layer_names, // **enabledLayerNames
+    };
+
+    device = physcial_device.createDeviceUnique(device_create_info);
+
+    graphics_queue = device->getQueue(indices.graphics_family.value(), 0);
 }
 
 void Application::mainLoop()
