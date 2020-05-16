@@ -46,6 +46,7 @@ class Application
     vk::UniqueInstance instance;
     vk::DispatchLoaderDynamic dldy;
     vk::UniqueHandle<vk::DebugUtilsMessengerEXT, vk::DispatchLoaderDynamic> debug_messenger;
+    vk::UniqueSurfaceKHR surface;
 
     vk::PhysicalDevice physcial_device;
     vk::UniqueDevice device;
@@ -56,12 +57,14 @@ class Application
     {
         createInstance();
         setupDebugMessenger();
+        createSurface();
         pickPhysicalDevice();
         createLogicalDevice();
     }
 
     void createInstance();
     void setupDebugMessenger();
+    void createSurface();
     void pickPhysicalDevice();
     void createLogicalDevice();
 

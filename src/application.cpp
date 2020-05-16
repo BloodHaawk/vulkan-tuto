@@ -1,4 +1,4 @@
-#include "application.h"
+#include "application.hpp"
 
 #include <iomanip>
 #include <iostream>
@@ -26,7 +26,7 @@ std::vector<const char *> getRequiredExtensions()
 
 bool checkValidationLayerSupport()
 {
-    std::set<std::string> required_layers{validation_layers.cbegin(), validation_layers.cend()};
+    auto required_layers = std::set<std::string>(validation_layers.cbegin(), validation_layers.cend());
     for (const auto &layer_properties : vk::enumerateInstanceLayerProperties()) {
         required_layers.erase(layer_properties.layerName);
     }
@@ -68,7 +68,7 @@ void Application::createInstance()
     };
 
     instance = vk::createInstanceUnique(create_info);
-    dldy.init(*instance, vkGetInstanceProcAddr);
+    dldy.init(*instance);
 }
 
 static VKAPI_ATTR vk::Bool32 VKAPI_CALL
@@ -104,6 +104,16 @@ void Application::setupDebugMessenger()
 
         debug_messenger = instance->createDebugUtilsMessengerEXTUnique(create_info, nullptr, dldy);
     }
+}
+
+void Application::createSurface()
+{
+    VkSurfaceKHR surface_tmp;
+    if (glfwCreateWindowSurface(*instance, window, nullptr, &surface_tmp) != VK_SUCCESS) {
+        std::runtime_error("Could not create window surface!");
+    }
+    // Set the instance as the allocator for correct order of destruction
+    surface = vk::UniqueSurfaceKHR(surface_tmp, *instance);
 }
 
 QueueFamilyIndices findQueueFamilies(const vk::PhysicalDevice &device)
@@ -146,7 +156,7 @@ void Application::pickPhysicalDevice()
 
 void Application::createLogicalDevice()
 {
-    QueueFamilyIndices indices = findQueueFamilies(physcial_device);
+    auto indices = findQueueFamilies(physcial_device);
 
     float queue_priority = 1;
     auto queue_create_info = vk::DeviceQueueCreateInfo{
