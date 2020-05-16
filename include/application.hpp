@@ -9,8 +9,9 @@
 
 struct QueueFamilyIndices {
     std::optional<unsigned int> graphics_family;
+    std::optional<unsigned int> present_family;
 
-    bool is_complete() { return graphics_family.has_value(); }
+    bool is_complete() { return graphics_family.has_value() && present_family.has_value(); }
 };
 
 class Application
@@ -52,20 +53,21 @@ class Application
     vk::UniqueDevice device;
 
     vk::Queue graphics_queue;
+    vk::Queue present_queue;
 
     void initVulkan()
     {
         createInstance();
         setupDebugMessenger();
         createSurface();
-        pickPhysicalDevice();
+        pickPhysicalDevice(*surface);
         createLogicalDevice();
     }
 
     void createInstance();
     void setupDebugMessenger();
     void createSurface();
-    void pickPhysicalDevice();
+    void pickPhysicalDevice(const vk::SurfaceKHR &surface);
     void createLogicalDevice();
 
     void mainLoop();

@@ -35,13 +35,13 @@ bool checkValidationLayerSupport()
 
 void Application::createInstance()
 {
-    auto app_info = vk::ApplicationInfo{
+    auto app_info = vk::ApplicationInfo(
         nullptr,                  // *applicationName
         VK_MAKE_VERSION(1, 0, 0), // applicationVersion
         "No Engine",              // *engineName
         VK_MAKE_VERSION(1, 0, 0), // engineVersion
         VK_API_VERSION_1_0        // apiVersion
-    };
+    );
 
     if (enabled_validation_layers && !checkValidationLayerSupport()) {
         throw std::runtime_error("validation layers requested, but not available!");
@@ -58,14 +58,14 @@ void Application::createInstance()
 
     auto extensions = getRequiredExtensions();
 
-    auto create_info = vk::InstanceCreateInfo{
+    auto create_info = vk::InstanceCreateInfo(
         {},                                           // flags
         &app_info,                                    // *applicationInfo
         enabled_layer_count,                          // enabledLayerCount
         enabled_layer_names,                          // **enabledExtensionsNames
         static_cast<unsigned int>(extensions.size()), // enabledExtensionCount
-        extensions.data(),                            // **enabledExtensionNames
-    };
+        extensions.data()                             // **enabledExtensionNames
+    );
 
     instance = vk::createInstanceUnique(create_info);
     dldy.init(*instance);
@@ -116,7 +116,7 @@ void Application::createSurface()
     surface = vk::UniqueSurfaceKHR(surface_tmp, *instance);
 }
 
-QueueFamilyIndices findQueueFamilies(const vk::PhysicalDevice &device)
+QueueFamilyIndices findQueueFamilies(const vk::PhysicalDevice &device, const vk::SurfaceKHR &surface)
 {
     QueueFamilyIndices indices;
 
@@ -124,6 +124,9 @@ QueueFamilyIndices findQueueFamilies(const vk::PhysicalDevice &device)
     for (const auto &queue_family : device.getQueueFamilyProperties()) {
         if (queue_family.queueFlags & vk::QueueFlagBits::eGraphics) {
             indices.graphics_family = i;
+        }
+        if (device.getSurfaceSupportKHR(i, surface)) {
+            indices.present_family = i;
         }
 
         if (indices.is_complete()) {
@@ -136,17 +139,17 @@ QueueFamilyIndices findQueueFamilies(const vk::PhysicalDevice &device)
     return indices;
 }
 
-bool isDeviceSuitable(const vk::PhysicalDevice &device)
+bool isDeviceSuitable(const vk::PhysicalDevice &device, const vk::SurfaceKHR &surface)
 {
-    QueueFamilyIndices indices = findQueueFamilies(device);
+    QueueFamilyIndices indices = findQueueFamilies(device, surface);
     return indices.is_complete();
 }
 
-void Application::pickPhysicalDevice()
+void Application::pickPhysicalDevice(const vk::SurfaceKHR &surface)
 {
     auto devices = instance->enumeratePhysicalDevices();
     auto it = std::find_if(
-        devices.cbegin(), devices.cend(), [&](const auto &device) { return isDeviceSuitable(device); });
+        devices.cbegin(), devices.cend(), [&](const auto &device) { return isDeviceSuitable(device, surface); });
     if (it == devices.cend()) {
         throw std::runtime_error("Failed to find a suitable GPU!");
     }
@@ -156,15 +159,24 @@ void Application::pickPhysicalDevice()
 
 void Application::createLogicalDevice()
 {
-    auto indices = findQueueFamilies(physcial_device);
+    auto indices = findQueueFamilies(physcial_device, *surface);
+
+    std::vector<vk::DeviceQueueCreateInfo> queue_create_infos;
+    std::set<unsigned int> unique_queue_families = {indices.graphics_family.value(),
+                                                    indices.present_family.value()};
 
     float queue_priority = 1;
-    auto queue_create_info = vk::DeviceQueueCreateInfo{
-        {},                              // flags
-        indices.graphics_family.value(), // queueFamilyIndex,
-        1,                               // queueCount
-        &queue_priority                  // *queuePriorities
-    };
+    queue_create_infos.reserve(unique_queue_families.size());
+
+    for (auto queue_family : unique_queue_families) {
+        auto queue_create_info = vk::DeviceQueueCreateInfo(
+            {},             // flags
+            queue_family,   // queueFamilyIndex
+            1,              // queueCount
+            &queue_priority // *queuePriority
+        );
+        queue_create_infos.push_back(queue_create_info);
+    }
 
     unsigned int enabled_layer_count = 0;
     const char *const *enabled_layer_names;
@@ -178,17 +190,18 @@ void Application::createLogicalDevice()
 
     auto extensions = getRequiredExtensions();
 
-    auto device_create_info = vk::DeviceCreateInfo{
-        {},                  // flags
-        1,                   // queueCreateInfoCount
-        &queue_create_info,  // *queueCreateInfos
-        enabled_layer_count, // enabledLayerCountr
-        enabled_layer_names, // **enabledLayerNames
-    };
+    auto device_create_info = vk::DeviceCreateInfo(
+        {},                                                   // flags
+        static_cast<unsigned int>(queue_create_infos.size()), // queueCreateInfoCount
+        queue_create_infos.data(),                            // *queueCreateInfos
+        enabled_layer_count,                                  // enabledLayerCount
+        enabled_layer_names                                   // **enabledLayerNames
+    );
 
     device = physcial_device.createDeviceUnique(device_create_info);
 
     graphics_queue = device->getQueue(indices.graphics_family.value(), 0);
+    present_queue = device->getQueue(indices.present_family.value(), 0);
 }
 
 void Application::mainLoop()
