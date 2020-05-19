@@ -133,7 +133,7 @@ class Application
         createInstance();
         setupDebugMessenger();
         createSurface();
-        pickPhysicalDevice(*surface);
+        pickPhysicalDevice();
         createLogicalDevice();
         createSwapChain();
     }
@@ -141,7 +141,7 @@ class Application
     void createInstance();
     void setupDebugMessenger();
     void createSurface();
-    void pickPhysicalDevice(const vk::SurfaceKHR &surface);
+    void pickPhysicalDevice();
     void createLogicalDevice();
     void createSwapChain();
 

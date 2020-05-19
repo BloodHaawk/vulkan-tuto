@@ -138,11 +138,11 @@ bool isDeviceSuitable(const vk::PhysicalDevice &device, const vk::SurfaceKHR &su
     return false;
 }
 
-void Application::pickPhysicalDevice(const vk::SurfaceKHR &surface)
+void Application::pickPhysicalDevice()
 {
     auto devices = instance->enumeratePhysicalDevices();
     auto it = std::find_if(
-        devices.cbegin(), devices.cend(), [&](const auto &device) { return isDeviceSuitable(device, surface); });
+        devices.cbegin(), devices.cend(), [&](const auto &device) { return isDeviceSuitable(device, *surface); });
     if (it == devices.cend()) {
         throw std::runtime_error("Failed to find a suitable GPU!");
     }
