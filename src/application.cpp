@@ -5,6 +5,7 @@
 #include <set>
 
 const std::vector<const char *> validation_layers = {"VK_LAYER_KHRONOS_validation"};
+const std::vector<const char *> device_extensions = {VK_KHR_SWAPCHAIN_EXTENSION_NAME};
 #ifdef NDEBUG
 const bool enabled_validation_layers = false;
 #else
@@ -116,33 +117,25 @@ void Application::createSurface()
     surface = vk::UniqueSurfaceKHR(surface_tmp, *instance);
 }
 
-QueueFamilyIndices findQueueFamilies(const vk::PhysicalDevice &device, const vk::SurfaceKHR &surface)
+bool checkDeviceExtensionSupport(const vk::PhysicalDevice &device)
 {
-    QueueFamilyIndices indices;
-
-    unsigned int i = 0;
-    for (const auto &queue_family : device.getQueueFamilyProperties()) {
-        if (queue_family.queueFlags & vk::QueueFlagBits::eGraphics) {
-            indices.graphics_family = i;
-        }
-        if (device.getSurfaceSupportKHR(i, surface)) {
-            indices.present_family = i;
-        }
-
-        if (indices.is_complete()) {
-            break;
-        }
-
-        i++;
+    auto required_extensions = std::set<std::string>(device_extensions.cbegin(), device_extensions.cend());
+    for (const auto &extension : device.enumerateDeviceExtensionProperties()) {
+        required_extensions.erase(extension.extensionName);
     }
-
-    return indices;
+    return required_extensions.empty();
 }
 
 bool isDeviceSuitable(const vk::PhysicalDevice &device, const vk::SurfaceKHR &surface)
 {
-    QueueFamilyIndices indices = findQueueFamilies(device, surface);
-    return indices.is_complete();
+    auto indices = QueueFamilyIndices(device, surface);
+
+    if (indices.is_complete() && checkDeviceExtensionSupport(device)) {
+        auto swap_chain_support = SwapChainSupportDetails(device, surface);
+        return !swap_chain_support.formats.empty() && !swap_chain_support.present_modes.empty();
+    }
+
+    return false;
 }
 
 void Application::pickPhysicalDevice(const vk::SurfaceKHR &surface)
@@ -159,7 +152,7 @@ void Application::pickPhysicalDevice(const vk::SurfaceKHR &surface)
 
 void Application::createLogicalDevice()
 {
-    auto indices = findQueueFamilies(physcial_device, *surface);
+    auto indices = QueueFamilyIndices(physcial_device, *surface);
 
     std::vector<vk::DeviceQueueCreateInfo> queue_create_infos;
     std::set<unsigned int> unique_queue_families = {indices.graphics_family.value(),
@@ -195,13 +188,69 @@ void Application::createLogicalDevice()
         static_cast<unsigned int>(queue_create_infos.size()), // queueCreateInfoCount
         queue_create_infos.data(),                            // *queueCreateInfos
         enabled_layer_count,                                  // enabledLayerCount
-        enabled_layer_names                                   // **enabledLayerNames
+        enabled_layer_names,                                  // **enabledLayerNames
+        static_cast<unsigned int>(device_extensions.size()),  // enabledExtensionCount
+        device_extensions.data()                              // **enabledExtensionNames
     );
 
     device = physcial_device.createDeviceUnique(device_create_info);
 
     graphics_queue = device->getQueue(indices.graphics_family.value(), 0);
     present_queue = device->getQueue(indices.present_family.value(), 0);
+}
+
+void Application::createSwapChain()
+{
+    auto swap_chain_support = SwapChainSupportDetails(physcial_device, *surface);
+    auto surface_format = swap_chain_support.chooseSwapSurfaceFormat(
+        vk::Format::eB8G8R8Srgb,          // requested_format
+        vk::ColorSpaceKHR::eSrgbNonlinear // requested_color_space
+    );
+    auto present_mode = swap_chain_support.choosePresentMode(
+        vk::PresentModeKHR::eMailbox // requested_present_mode
+    );
+    auto extent = swap_chain_support.chooseSwapExtent(width, height);
+
+    unsigned int image_count = swap_chain_support.capabilitites.minImageCount + 1;
+    if (swap_chain_support.capabilitites.maxImageCount > 0 && image_count > swap_chain_support.capabilitites.maxImageCount) {
+        image_count = swap_chain_support.capabilitites.maxImageCount;
+    }
+
+    auto indices = QueueFamilyIndices(physcial_device, *surface);
+    auto image_sharing_mode = vk::SharingMode::eExclusive;
+    uint32_t queue_family_index_count = 0;
+    uint32_t *queue_family_indices = nullptr;
+    uint32_t family_indices[] = {indices.graphics_family.value(), indices.present_family.value()};
+
+    if (indices.graphics_family != indices.present_family) {
+        image_sharing_mode = vk::SharingMode::eConcurrent;
+        queue_family_index_count = 2;
+        queue_family_indices = family_indices;
+    }
+
+    auto swap_chain_create_info = vk::SwapchainCreateInfoKHR(
+        {},                                                // flags
+        *surface,                                          // surface
+        image_count,                                       // minImageCount
+        surface_format.format,                             // imageFormat
+        surface_format.colorSpace,                         // imageColorSpace
+        extent,                                            // imageExtent
+        1,                                                 // imageArrayLayers
+        vk::ImageUsageFlagBits::eColorAttachment,          // imageUsage
+        image_sharing_mode,                                // imageSharingMode
+        queue_family_index_count,                          // queueFamilyIndexCount
+        queue_family_indices,                              // *queueFamilyIndices
+        swap_chain_support.capabilitites.currentTransform, // preTransform
+        vk::CompositeAlphaFlagBitsKHR::eOpaque,            // compositeAlpha
+        present_mode,                                      // presentMode
+        VK_TRUE,                                           // clipped
+        nullptr                                            // oldSwapChain
+    );
+
+    swap_chain = device->createSwapchainKHRUnique(swap_chain_create_info);
+    swap_chain_images = device->getSwapchainImagesKHR(*swap_chain);
+    swap_chain_image_format = surface_format.format;
+    swap_chain_extent = extent;
 }
 
 void Application::mainLoop()
