@@ -253,6 +253,29 @@ void Application::createSwapChain()
     swap_chain_extent = extent;
 }
 
+void Application::createImageViews()
+{
+    swap_chain_image_views.resize(swap_chain_images.size());
+    for (size_t i = 0; i < swap_chain_images.size(); i++) {
+        auto image_view_create_info = vk::ImageViewCreateInfo(
+            {},                      // flags
+            swap_chain_images[i],    // image
+            vk::ImageViewType::e2D,  // viewType
+            swap_chain_image_format, // format
+            vk::ComponentMapping(),  // components
+            vk::ImageSubresourceRange(
+                vk::ImageAspectFlagBits::eColor, // aspectMask
+                0,                               // baseMipLevel
+                1,                               // levelCount
+                0,                               // baseArrayLayer
+                1                                // layerCount
+                )                                // subresourceRange
+        );
+
+        swap_chain_image_views[i] = device->createImageViewUnique(image_view_create_info);
+    }
+}
+
 void Application::mainLoop()
 {
     while (!glfwWindowShouldClose(window)) {

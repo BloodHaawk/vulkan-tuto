@@ -127,6 +127,7 @@ class Application
     std::vector<vk::Image> swap_chain_images;
     vk::Format swap_chain_image_format;
     vk::Extent2D swap_chain_extent;
+    std::vector<vk::UniqueImageView> swap_chain_image_views;
 
     void initVulkan()
     {
@@ -136,6 +137,7 @@ class Application
         pickPhysicalDevice();
         createLogicalDevice();
         createSwapChain();
+        createImageViews();
     }
 
     void createInstance();
@@ -144,6 +146,7 @@ class Application
     void pickPhysicalDevice();
     void createLogicalDevice();
     void createSwapChain();
+    void createImageViews();
 
     void mainLoop();
 };
