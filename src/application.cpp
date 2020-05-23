@@ -1,5 +1,6 @@
 #include "application.hpp"
 
+#include <fstream>
 #include <iomanip>
 #include <iostream>
 #include <set>
@@ -117,21 +118,21 @@ void Application::createSurface()
     surface = vk::UniqueSurfaceKHR(surface_tmp, *instance);
 }
 
-bool checkDeviceExtensionSupport(const vk::PhysicalDevice &device)
+bool checkDeviceExtensionSupport(const vk::PhysicalDevice &physical_device)
 {
     auto required_extensions = std::set<std::string>(device_extensions.cbegin(), device_extensions.cend());
-    for (const auto &extension : device.enumerateDeviceExtensionProperties()) {
+    for (const auto &extension : physical_device.enumerateDeviceExtensionProperties()) {
         required_extensions.erase(extension.extensionName);
     }
     return required_extensions.empty();
 }
 
-bool isDeviceSuitable(const vk::PhysicalDevice &device, const vk::SurfaceKHR &surface)
+bool isDeviceSuitable(const vk::PhysicalDevice &physical_device, const vk::SurfaceKHR &surface)
 {
-    auto indices = QueueFamilyIndices(device, surface);
+    auto indices = QueueFamilyIndices(physical_device, surface);
 
-    if (indices.is_complete() && checkDeviceExtensionSupport(device)) {
-        auto swap_chain_support = SwapChainSupportDetails(device, surface);
+    if (indices.is_complete() && checkDeviceExtensionSupport(physical_device)) {
+        auto swap_chain_support = SwapChainSupportDetails(physical_device, surface);
         return !swap_chain_support.formats.empty() && !swap_chain_support.present_modes.empty();
     }
 
@@ -274,6 +275,138 @@ void Application::createImageViews()
 
         swap_chain_image_views[i] = device->createImageViewUnique(image_view_create_info);
     }
+}
+
+vk::UniqueShaderModule createShadermodule(const vk::UniqueDevice &device, const std::string &filename)
+{
+    auto file = std::ifstream(filename, std::ios::ate | std::ios::binary);
+    if (!file.is_open()) {
+        throw std::runtime_error(std::string("Failed to open '") + filename + "'!");
+    }
+
+    std::vector<char> buffer(file.tellg());
+    file.seekg(0);
+    file.read(buffer.data(), buffer.size());
+    file.close();
+
+    auto create_info = vk::ShaderModuleCreateInfo(
+        {},                                               // flags
+        buffer.size(),                                    // codeSize
+        reinterpret_cast<const uint32_t *>(buffer.data()) // *code
+    );
+
+    return device->createShaderModuleUnique(create_info);
+}
+
+void Application::createGraphicsPipeline()
+{
+    auto vert_shader_module = createShadermodule(device, "shaders/vertex.spv");
+    auto frag_shader_module = createShadermodule(device, "shaders/fragment.spv");
+
+    auto vert_shader_stage_info = vk::PipelineShaderStageCreateInfo(
+        {},                               // flags
+        vk::ShaderStageFlagBits::eVertex, // stage
+        *vert_shader_module,              // module
+        "main"                            // *name
+    );
+    auto frag_shader_stage_info = vk::PipelineShaderStageCreateInfo(
+        {},                                 // flags
+        vk::ShaderStageFlagBits::eFragment, // stage
+        *frag_shader_module,                // module
+        "main"                              // *name
+    );
+
+    vk::PipelineShaderStageCreateInfo shader_stages[] = {vert_shader_stage_info, frag_shader_stage_info};
+
+    auto vertex_input_info = vk::PipelineVertexInputStateCreateInfo(
+        {},      // flags
+        0,       // vertexBindingDescriptionCount
+        nullptr, // *vertexBindingDescriptions
+        0,       // vertexAttributeDescriptionCount
+        nullptr  // *vertexAttributeDesscriptions
+    );
+
+    auto input_assembly = vk::PipelineInputAssemblyStateCreateInfo(
+        {},                                   // flags
+        vk::PrimitiveTopology::eTriangleList, // topology
+        VK_FALSE                              // primitiveRestartEnable
+    );
+
+    auto viewport = vk::Viewport(
+        0.0f,                                        // x
+        0.0f,                                        // y
+        static_cast<float>(swap_chain_extent.width), // width
+        static_cast<float>(swap_chain_extent.height) // height
+    );
+
+    auto scissor = vk::Rect2D(
+        vk::Offset2D(0, 0), // offset
+        swap_chain_extent   // extent
+    );
+
+    auto viewport_state = vk::PipelineViewportStateCreateInfo(
+        {},        // flags
+        1,         // viewportCount
+        &viewport, // *viewports
+        1,         // scissorCount
+        &scissor   // *scissors
+    );
+
+    auto rasterizer = vk::PipelineRasterizationStateCreateInfo(
+        {},                          // flags
+        VK_FALSE,                    // depthClampEnable
+        VK_FALSE,                    // rasterizerDiscardEnable
+        vk::PolygonMode::eFill,      // polygonMode
+        vk::CullModeFlagBits::eBack, // cullMode
+        vk::FrontFace::eClockwise,   // frontFace
+        VK_FALSE                     // depthBiasEnable
+    );
+
+    auto multisampling = vk::PipelineMultisampleStateCreateInfo(
+        {},                          // flags
+        vk::SampleCountFlagBits::e1, // rasterizationSamples
+        VK_FALSE                     // sampleShadingEnable
+    );
+
+    auto color_blend_attachment = vk::PipelineColorBlendAttachmentState(
+        VK_TRUE,                // blendEnable
+        vk::BlendFactor::eOne,  // srcColorBlendFactor
+        vk::BlendFactor::eZero, // dstColorBlendFactor
+        vk::BlendOp::eAdd,      // colorBlendOp
+        vk::BlendFactor::eOne,  // srcAlphaBlendFactor
+        vk::BlendFactor::eZero, // dstAlphaBlendFactor
+        vk::BlendOp::eAdd,      // alphaBlendOp
+        vk::ColorComponentFlagBits::eR |
+            vk::ColorComponentFlagBits::eG |
+            vk::ColorComponentFlagBits::eB |
+            vk::ColorComponentFlagBits::eA // colorWriteMask
+    );
+
+    auto color_blending = vk::PipelineColorBlendStateCreateInfo(
+        {},                     // flags
+        VK_FALSE,               // logicOpEnable
+        vk::LogicOp::eCopy,     // logicOp
+        1,                      // attachmentCount
+        &color_blend_attachment // *attachments
+    );
+
+    vk::DynamicState dynamic_states[] = {vk::DynamicState::eViewport, vk::DynamicState::eLineWidth};
+
+    auto dynamic_state = vk::PipelineDynamicStateCreateInfo(
+        {},            // flags
+        2,             // dynamicStateCount
+        dynamic_states // *dynamicStates
+    );
+
+    auto pipeline_layout_info = vk::PipelineLayoutCreateInfo(
+        {},      // flags
+        0,       // setLayoutCount
+        nullptr, // *setLayouts
+        0,       // pushConstantRangeCount
+        nullptr  // *pushConstantRanges
+    );
+
+    pipeline_layout = device->createPipelineLayoutUnique(pipeline_layout_info);
 }
 
 void Application::mainLoop()

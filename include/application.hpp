@@ -13,14 +13,14 @@ struct QueueFamilyIndices {
     std::optional<unsigned int> graphics_family;
     std::optional<unsigned int> present_family;
 
-    QueueFamilyIndices(const vk::PhysicalDevice &device, const vk::SurfaceKHR &surface)
+    QueueFamilyIndices(const vk::PhysicalDevice &physical_device, const vk::SurfaceKHR &surface)
     {
         unsigned int i = 0;
-        for (const auto &queue_family : device.getQueueFamilyProperties()) {
+        for (const auto &queue_family : physical_device.getQueueFamilyProperties()) {
             if (queue_family.queueFlags & vk::QueueFlagBits::eGraphics) {
                 graphics_family = i;
             }
-            if (device.getSurfaceSupportKHR(i, surface)) {
+            if (physical_device.getSurfaceSupportKHR(i, surface)) {
                 present_family = i;
             }
 
@@ -40,11 +40,11 @@ struct SwapChainSupportDetails {
     std::vector<vk::SurfaceFormatKHR> formats;
     std::vector<vk::PresentModeKHR> present_modes;
 
-    SwapChainSupportDetails(const vk::PhysicalDevice &device, const vk::SurfaceKHR &surface)
+    SwapChainSupportDetails(const vk::PhysicalDevice &physical_device, const vk::SurfaceKHR &surface)
     {
-        capabilitites = device.getSurfaceCapabilitiesKHR(surface);
-        formats = device.getSurfaceFormatsKHR(surface);
-        present_modes = device.getSurfacePresentModesKHR(surface);
+        capabilitites = physical_device.getSurfaceCapabilitiesKHR(surface);
+        formats = physical_device.getSurfaceFormatsKHR(surface);
+        present_modes = physical_device.getSurfacePresentModesKHR(surface);
     }
 
     vk::SurfaceFormatKHR chooseSwapSurfaceFormat(vk::Format requested_format, vk::ColorSpaceKHR requested_color_space)
@@ -129,6 +129,8 @@ class Application
     vk::Extent2D swap_chain_extent;
     std::vector<vk::UniqueImageView> swap_chain_image_views;
 
+    vk::UniquePipelineLayout pipeline_layout;
+
     void initVulkan()
     {
         createInstance();
@@ -138,6 +140,7 @@ class Application
         createLogicalDevice();
         createSwapChain();
         createImageViews();
+        createGraphicsPipeline();
     }
 
     void createInstance();
@@ -147,6 +150,7 @@ class Application
     void createLogicalDevice();
     void createSwapChain();
     void createImageViews();
+    void createGraphicsPipeline();
 
     void mainLoop();
 };
