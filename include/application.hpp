@@ -67,12 +67,14 @@ struct SwapChainSupportDetails {
         return vk::PresentModeKHR::eFifo;
     }
 
-    vk::Extent2D chooseSwapExtent(unsigned int actual_width, unsigned int actual_height)
+    vk::Extent2D chooseSwapExtent(GLFWwindow *window)
     {
         if (capabilitites.currentExtent.width != UINT32_MAX) {
             return capabilitites.currentExtent;
         } else {
-            vk::Extent2D actual_extent = {actual_width, actual_height};
+            int window_width = 0, window_height = 0;
+            glfwGetFramebufferSize(window, &window_width, &window_height);
+            vk::Extent2D actual_extent = {(uint32_t)window_width, (uint32_t)window_height};
 
             actual_extent.width = std::max(capabilitites.minImageExtent.width, std::min(capabilitites.maxImageExtent.width, actual_extent.width));
             actual_extent.height = std::max(capabilitites.minImageExtent.height, std::min(capabilitites.maxImageExtent.height, actual_extent.height));
@@ -90,9 +92,11 @@ class Application
         glfwInit();
 
         glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-        glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
+        // glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
 
         window = glfwCreateWindow(width, height, "Vulkan Window", nullptr, nullptr);
+        glfwSetWindowUserPointer(window, this);
+        glfwSetFramebufferSizeCallback(window, framebufferResizeCallback);
     }
 
     void run()
@@ -136,13 +140,14 @@ class Application
     vk::UniquePipeline graphics_pipeline;
 
     vk::UniqueCommandPool command_pool;
-    std::vector<vk::UniqueCommandBuffer> command_buffers;
+    std::vector<vk::CommandBuffer> command_buffers;
 
     std::vector<vk::UniqueSemaphore> image_available_semaphores;
     std::vector<vk::UniqueSemaphore> render_finished_semaphores;
     std::vector<vk::UniqueFence> in_flight_fences;
     std::vector<vk::Fence> images_in_flight;
     size_t current_frame = 0;
+    bool framebuffer_resized = false;
 
     void initVulkan()
     {
@@ -176,8 +181,15 @@ class Application
     void createSyncObjects();
 
     void drawFrame();
+    void recreateSwapChain();
 
     void mainLoop();
+
+    static void framebufferResizeCallback(GLFWwindow *window, int width, int height)
+    {
+        auto app = reinterpret_cast<Application *>(glfwGetWindowUserPointer(window));
+        app->framebuffer_resized = true;
+    }
 };
 
 #endif

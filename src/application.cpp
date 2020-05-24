@@ -210,7 +210,7 @@ void Application::createSwapChain()
     auto present_mode = swap_chain_support.choosePresentMode(
         vk::PresentModeKHR::eMailbox // requested_present_mode
     );
-    auto extent = swap_chain_support.chooseSwapExtent(width, height);
+    auto extent = swap_chain_support.chooseSwapExtent(window);
 
     unsigned int image_count = swap_chain_support.capabilitites.minImageCount + 1;
     if (swap_chain_support.capabilitites.maxImageCount > 0 && image_count > swap_chain_support.capabilitites.maxImageCount) {
@@ -514,14 +514,14 @@ void Application::createCommandBuffers()
         (uint32_t)swap_chain_framebuffers.size() // commandBufferCount
     );
 
-    command_buffers = device->allocateCommandBuffersUnique(alloc_info);
+    command_buffers = device->allocateCommandBuffers(alloc_info);
 
     auto command_buffer_begin_info = vk::CommandBufferBeginInfo(
         vk::CommandBufferUsageFlagBits::eSimultaneousUse, // flags
         nullptr                                           // *inheritanceInfo
     );
     for (size_t i = 0; i < command_buffers.size(); i++) {
-        command_buffers[i]->begin(command_buffer_begin_info);
+        command_buffers[i].begin(command_buffer_begin_info);
 
         auto clear_color = vk::ClearValue(std::array{0.0f, 0.0f, 0.0f, 1.0f});
         auto render_pass_begin_info = vk::RenderPassBeginInfo(
@@ -534,17 +534,17 @@ void Application::createCommandBuffers()
             1,           // clearValueCount
             &clear_color // *clearValues
         );
-        command_buffers[i]->beginRenderPass(render_pass_begin_info, vk::SubpassContents::eInline);
+        command_buffers[i].beginRenderPass(render_pass_begin_info, vk::SubpassContents::eInline);
 
-        command_buffers[i]->bindPipeline(vk::PipelineBindPoint::eGraphics, *graphics_pipeline);
-        command_buffers[i]->draw(
+        command_buffers[i].bindPipeline(vk::PipelineBindPoint::eGraphics, *graphics_pipeline);
+        command_buffers[i].draw(
             3, // vertexCount
             1, //  instanceCount
             0, // firstVertex
             0  // firstInstance
         );
-        command_buffers[i]->endRenderPass();
-        command_buffers[i]->end();
+        command_buffers[i].endRenderPass();
+        command_buffers[i].end();
     }
 }
 
@@ -566,7 +566,16 @@ void Application::drawFrame()
 {
     device->waitForFences(*in_flight_fences[current_frame], VK_TRUE, UINT64_MAX);
 
-    uint32_t image_index = device->acquireNextImageKHR(*swap_chain, UINT64_MAX, *image_available_semaphores[current_frame], nullptr).value;
+    uint32_t image_index;
+    auto result = device->acquireNextImageKHR(*swap_chain, UINT64_MAX, *image_available_semaphores[current_frame], nullptr, &image_index);
+    if (result == vk::Result::eErrorOutOfDateKHR) {
+        recreateSwapChain();
+        return;
+    }
+    if (result != vk::Result::eSuccess && result != vk::Result::eSuboptimalKHR) {
+        throw std::runtime_error("Failed to acquire swap chain image!");
+    }
+
     // Check if a previous frame is using this image
     if (images_in_flight[image_index] != vk::Fence(nullptr)) {
         device->waitForFences(images_in_flight[image_index], VK_TRUE, UINT64_MAX);
@@ -575,16 +584,16 @@ void Application::drawFrame()
     images_in_flight[image_index] = *in_flight_fences[current_frame];
 
     vk::Semaphore wait_semaphores[] = {*image_available_semaphores[current_frame]};
-    vk::PipelineStageFlags wait_stages[] = {vk::PipelineStageFlagBits::eColorAttachmentOutput};
+    vk::PipelineStageFlags wait_stages = vk::PipelineStageFlagBits::eColorAttachmentOutput;
     vk::Semaphore signal_semaphores[] = {*render_finished_semaphores[current_frame]};
     auto submit_info = vk::SubmitInfo(
-        1,                              // waitSemaphroeCount
-        wait_semaphores,                // *waitSemaphores
-        wait_stages,                    // *waitDstStageMask
-        1,                              // commandBufferCount
-        &*command_buffers[image_index], // *commandBuffers
-        1,                              // signalSemaphoreCount
-        signal_semaphores               // *signalSemaphores
+        1,                             // waitSemaphroeCount
+        wait_semaphores,               // *waitSemaphores
+        &wait_stages,                  // *waitDstStageMask
+        1,                             // commandBufferCount
+        &command_buffers[image_index], // *commandBuffers
+        1,                             // signalSemaphoreCount
+        signal_semaphores              // *signalSemaphores
     );
 
     device->resetFences(*in_flight_fences[current_frame]);
@@ -599,8 +608,34 @@ void Application::drawFrame()
         nullptr            // *results
     );
 
-    present_queue.presentKHR(present_info);
+    result = present_queue.presentKHR(&present_info);
+    if (result == vk::Result::eErrorOutOfDateKHR || result == vk::Result::eSuboptimalKHR || framebuffer_resized) {
+        framebuffer_resized = false;
+        recreateSwapChain();
+    } else if (result != vk::Result::eSuccess) {
+        throw std::runtime_error("Failed to present swap chain image!");
+    }
     current_frame = (current_frame + 1) % max_frames_in_flight;
+}
+
+void Application::recreateSwapChain()
+{
+    int window_width = 0, window_height = 0;
+    glfwGetFramebufferSize(window, &window_width, &window_height);
+    while (window_width == 0 || window_height == 0) {
+        glfwGetFramebufferSize(window, &window_width, &window_height);
+        glfwWaitEvents();
+    }
+
+    device->waitIdle();
+    device->freeCommandBuffers(*command_pool, command_buffers);
+
+    createSwapChain();
+    createImageViews();
+    createRenderPass();
+    createGraphicsPipeline();
+    createFramebuffers();
+    createCommandBuffers();
 }
 
 void Application::mainLoop()
