@@ -568,11 +568,11 @@ void Application::drawFrame()
 
     uint32_t image_index = device->acquireNextImageKHR(*swap_chain, UINT64_MAX, *image_available_semaphores[current_frame], nullptr).value;
     // Check if a previous frame is using this image
-    if (*images_in_flight[image_index] != vk::Fence(nullptr)) {
-        device->waitForFences(*images_in_flight[image_index], VK_TRUE, UINT64_MAX);
+    if (images_in_flight[image_index] != vk::Fence(nullptr)) {
+        device->waitForFences(images_in_flight[image_index], VK_TRUE, UINT64_MAX);
     }
-    // Marked the image as now being used by this frame
-    *images_in_flight[image_index] = *in_flight_fences[current_frame];
+    // Mark the image as now being used by this frame
+    images_in_flight[image_index] = *in_flight_fences[current_frame];
 
     vk::Semaphore wait_semaphores[] = {*image_available_semaphores[current_frame]};
     vk::PipelineStageFlags wait_stages[] = {vk::PipelineStageFlagBits::eColorAttachmentOutput};
