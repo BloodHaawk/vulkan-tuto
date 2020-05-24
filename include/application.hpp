@@ -110,6 +110,7 @@ class Application
   private:
     const unsigned int width = 800;
     const unsigned int height = 600;
+    const unsigned int max_frames_in_flight = 2;
     GLFWwindow *window;
 
     vk::UniqueInstance instance;
@@ -137,6 +138,11 @@ class Application
     vk::UniqueCommandPool command_pool;
     std::vector<vk::UniqueCommandBuffer> command_buffers;
 
+    std::vector<vk::UniqueSemaphore> image_available_semaphores;
+    std::vector<vk::UniqueSemaphore> render_finished_semaphores;
+    std::vector<vk::UniqueFence> in_flight_fences;
+    size_t current_frame = 0;
+
     void initVulkan()
     {
         createInstance();
@@ -151,6 +157,7 @@ class Application
         createFramebuffers();
         createCommandPool();
         createCommandBuffers();
+        createSyncObjects();
     }
 
     void createInstance();
@@ -165,6 +172,9 @@ class Application
     void createFramebuffers();
     void createCommandPool();
     void createCommandBuffers();
+    void createSyncObjects();
+
+    void drawFrame();
 
     void mainLoop();
 };

@@ -305,12 +305,23 @@ void Application::createRenderPass()
         &color_attachment_ref             // *colorAttachments
     );
 
+    auto subpass_dependency = vk::SubpassDependency(
+        VK_SUBPASS_EXTERNAL,                               // srcSubpass
+        0,                                                 // dstSubpass
+        vk::PipelineStageFlagBits::eColorAttachmentOutput, // srcStageMask
+        vk::PipelineStageFlagBits::eColorAttachmentOutput, // dstStageMask
+        {},                                                // srcAccessMask
+        vk::AccessFlagBits::eColorAttachmentWrite          // dstAccessMask
+    );
+
     auto render_pass_create_info = vk::RenderPassCreateInfo(
-        {},                // flags
-        1,                 // attachmentCount
-        &color_attachment, // *attachments
-        1,                 // subpassCount
-        &subpass           // *subpasses
+        {},                 // flags
+        1,                  // attachmentCount
+        &color_attachment,  // *attachments
+        1,                  // subpassCount
+        &subpass,           // *subpasses
+        1,                  // dependencyCount
+        &subpass_dependency // *dependencies
     );
 
     render_pass = device->createRenderPassUnique(render_pass_create_info);
@@ -537,6 +548,54 @@ void Application::createCommandBuffers()
     }
 }
 
+void Application::createSyncObjects()
+{
+    image_available_semaphores.resize(max_frames_in_flight);
+    render_finished_semaphores.resize(max_frames_in_flight);
+    in_flight_fences.resize(max_frames_in_flight);
+
+    for (size_t i = 0; i < max_frames_in_flight; i++) {
+        image_available_semaphores[i] = device->createSemaphoreUnique(vk::SemaphoreCreateInfo());
+        render_finished_semaphores[i] = device->createSemaphoreUnique(vk::SemaphoreCreateInfo());
+        in_flight_fences[i] = device->createFenceUnique(vk::FenceCreateInfo(vk::FenceCreateFlagBits::eSignaled));
+    }
+}
+
+void Application::drawFrame()
+{
+    device->waitForFences(*in_flight_fences[current_frame], VK_TRUE, UINT64_MAX);
+    device->resetFences(*in_flight_fences[current_frame]);
+
+    uint32_t image_index = device->acquireNextImageKHR(*swap_chain, UINT64_MAX, *image_available_semaphores[current_frame], nullptr).value;
+
+    vk::Semaphore wait_semaphores[] = {*image_available_semaphores[current_frame]};
+    vk::PipelineStageFlags wait_stages[] = {vk::PipelineStageFlagBits::eColorAttachmentOutput};
+    vk::Semaphore signal_semaphores[] = {*render_finished_semaphores[current_frame]};
+    auto submit_info = vk::SubmitInfo(
+        1,                              // waitSemaphroeCount
+        wait_semaphores,                // *waitSemaphores
+        wait_stages,                    // *waitDstStageMask
+        1,                              // commandBufferCount
+        &*command_buffers[image_index], // *commandBuffers
+        1,                              // signalSemaphoreCount
+        signal_semaphores               // *signalSemaphores
+    );
+
+    graphics_queue.submit(submit_info, *in_flight_fences[current_frame]);
+
+    auto present_info = vk::PresentInfoKHR(
+        1,                 // waitSemaphoreCount
+        signal_semaphores, // *waitSemaphores
+        1,                 // swapchainCount
+        &*swap_chain,      // *swapchains
+        &image_index,      // *imageIndices
+        nullptr            // *results
+    );
+
+    present_queue.presentKHR(present_info);
+    current_frame = (current_frame + 1) % max_frames_in_flight;
+}
+
 void Application::mainLoop()
 {
     while (!glfwWindowShouldClose(window)) {
@@ -544,5 +603,7 @@ void Application::mainLoop()
             glfwSetWindowShouldClose(window, 1);
         }
         glfwPollEvents();
+        drawFrame();
     }
+    device->waitIdle();
 }

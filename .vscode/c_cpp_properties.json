@@ -3,7 +3,7 @@
         {
             "name": "Linux",
             "includePath": [
-                "${workspaceFolder}/include/**",
+                "${workspaceFolder}/include",
                 "/usr/local/vulkan/x86_64/include"
             ],
             "defines": [],
@@ -18,7 +18,7 @@
         {
             "name": "macOS",
             "includePath": [
-                "${workspaceFolder}/include/**",
+                "${workspaceFolder}/include",
                 "/Users/wilfriedgrondin/vulkansdk/macOS/include"
             ],
             "defines": [],
