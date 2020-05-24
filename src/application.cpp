@@ -277,6 +277,45 @@ void Application::createImageViews()
     }
 }
 
+void Application::createRenderPass()
+{
+    auto color_attachment = vk::AttachmentDescription(
+        {},                               // flags
+        swap_chain_image_format,          // format
+        vk::SampleCountFlagBits::e1,      // samples
+        vk::AttachmentLoadOp::eClear,     // loadOp
+        vk::AttachmentStoreOp::eStore,    // storeOp
+        vk::AttachmentLoadOp::eDontCare,  // stencilLoadOp
+        vk::AttachmentStoreOp::eDontCare, // stencilStoreOp
+        vk::ImageLayout::eUndefined,      // initialLayout
+        vk::ImageLayout::ePresentSrcKHR   // finalLayout
+    );
+
+    auto color_attachment_ref = vk::AttachmentReference(
+        0,                                       // attachment
+        vk::ImageLayout::eColorAttachmentOptimal // layout
+    );
+
+    auto subpass = vk::SubpassDescription(
+        {},                               // flags
+        vk::PipelineBindPoint::eGraphics, // pipilineBindPoint
+        0,                                // inputAttachmentCount
+        nullptr,                          // *inputAttachments
+        1,                                // colorAttachmentCount
+        &color_attachment_ref             // *colorAttachments
+    );
+
+    auto render_pass_create_info = vk::RenderPassCreateInfo(
+        {},                // flags
+        1,                 // attachmentCount
+        &color_attachment, // *attachments
+        1,                 // subpassCount
+        &subpass           // *subpasses
+    );
+
+    render_pass = device->createRenderPassUnique(render_pass_create_info);
+}
+
 vk::UniqueShaderModule createShadermodule(const vk::UniqueDevice &device, const std::string &filename)
 {
     auto file = std::ifstream(filename, std::ios::ate | std::ios::binary);
@@ -407,6 +446,25 @@ void Application::createGraphicsPipeline()
     );
 
     pipeline_layout = device->createPipelineLayoutUnique(pipeline_layout_info);
+
+    auto graphics_pipeline_create_info = vk::GraphicsPipelineCreateInfo(
+        {},                 // flags
+        2,                  // stageCount
+        shader_stages,      // *stages
+        &vertex_input_info, // *vertexInoutState
+        &input_assembly,    // *inputAssemblyState
+        nullptr,            // *tesselationState
+        &viewport_state,    // *viewportState
+        &rasterizer,        // *rasterizationState
+        &multisampling,     // *multisampleState
+        nullptr,            // *depthStencilState
+        &color_blending,    // *colorBlendState
+        &dynamic_state,     // *dynamicState
+        *pipeline_layout,   // layout
+        *render_pass        // renderPass
+    );
+
+    graphics_pipeline = device->createGraphicsPipelineUnique(nullptr, graphics_pipeline_create_info);
 }
 
 void Application::mainLoop()

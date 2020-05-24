@@ -129,7 +129,9 @@ class Application
     vk::Extent2D swap_chain_extent;
     std::vector<vk::UniqueImageView> swap_chain_image_views;
 
+    vk::UniqueRenderPass render_pass;
     vk::UniquePipelineLayout pipeline_layout;
+    vk::UniquePipeline graphics_pipeline;
 
     void initVulkan()
     {
@@ -140,6 +142,7 @@ class Application
         createLogicalDevice();
         createSwapChain();
         createImageViews();
+        createRenderPass();
         createGraphicsPipeline();
     }
 
@@ -150,6 +153,7 @@ class Application
     void createLogicalDevice();
     void createSwapChain();
     void createImageViews();
+    void createRenderPass();
     void createGraphicsPipeline();
 
     void mainLoop();
