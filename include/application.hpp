@@ -134,6 +134,9 @@ class Application
     vk::UniquePipelineLayout pipeline_layout;
     vk::UniquePipeline graphics_pipeline;
 
+    vk::UniqueCommandPool command_pool;
+    std::vector<vk::UniqueCommandBuffer> command_buffers;
+
     void initVulkan()
     {
         createInstance();
@@ -146,6 +149,8 @@ class Application
         createRenderPass();
         createGraphicsPipeline();
         createFramebuffers();
+        createCommandPool();
+        createCommandBuffers();
     }
 
     void createInstance();
@@ -158,6 +163,8 @@ class Application
     void createRenderPass();
     void createGraphicsPipeline();
     void createFramebuffers();
+    void createCommandPool();
+    void createCommandBuffers();
 
     void mainLoop();
 };

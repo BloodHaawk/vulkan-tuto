@@ -398,7 +398,11 @@ void Application::createGraphicsPipeline()
         vk::PolygonMode::eFill,      // polygonMode
         vk::CullModeFlagBits::eBack, // cullMode
         vk::FrontFace::eClockwise,   // frontFace
-        VK_FALSE                     // depthBiasEnable
+        VK_FALSE,                    // depthBiasEnable
+        0.0f,                        // depthBiasCosntantFactor
+        0.0f,                        // depthBiasClamp
+        0.0f,                        // depthBiasSlopeFactor
+        1.0f                         // lineWidth
     );
 
     auto multisampling = vk::PipelineMultisampleStateCreateInfo(
@@ -429,14 +433,6 @@ void Application::createGraphicsPipeline()
         &color_blend_attachment // *attachments
     );
 
-    vk::DynamicState dynamic_states[] = {vk::DynamicState::eViewport, vk::DynamicState::eLineWidth};
-
-    auto dynamic_state = vk::PipelineDynamicStateCreateInfo(
-        {},            // flags
-        2,             // dynamicStateCount
-        dynamic_states // *dynamicStates
-    );
-
     auto pipeline_layout_info = vk::PipelineLayoutCreateInfo(
         {},      // flags
         0,       // setLayoutCount
@@ -459,7 +455,7 @@ void Application::createGraphicsPipeline()
         &multisampling,     // *multisampleState
         nullptr,            // *depthStencilState
         &color_blending,    // *colorBlendState
-        &dynamic_state,     // *dynamicState
+        nullptr,            // *dynamicState
         *pipeline_layout,   // layout
         *render_pass        // renderPass
     );
@@ -485,6 +481,59 @@ void Application::createFramebuffers()
         );
 
         swap_chain_framebuffers[i] = device->createFramebufferUnique(framebuffer_create_info);
+    }
+}
+
+void Application::createCommandPool()
+{
+    auto indices = QueueFamilyIndices(physcial_device, *surface);
+
+    auto pool_create_info = vk::CommandPoolCreateInfo(
+        {},                             // flags
+        indices.graphics_family.value() // queueFamilyIndex
+    );
+    command_pool = device->createCommandPoolUnique(pool_create_info);
+}
+
+void Application::createCommandBuffers()
+{
+    auto alloc_info = vk::CommandBufferAllocateInfo(
+        *command_pool,                           // commandPool
+        vk::CommandBufferLevel::ePrimary,        // level
+        (uint32_t)swap_chain_framebuffers.size() // commandBufferCount
+    );
+
+    command_buffers = device->allocateCommandBuffersUnique(alloc_info);
+
+    auto command_buffer_begin_info = vk::CommandBufferBeginInfo(
+        vk::CommandBufferUsageFlagBits::eSimultaneousUse, // flags
+        nullptr                                           // *inheritanceInfo
+    );
+    for (size_t i = 0; i < command_buffers.size(); i++) {
+        command_buffers[i]->begin(command_buffer_begin_info);
+
+        auto clear_color = vk::ClearValue(std::array{0.0f, 0.0f, 0.0f, 1.0f});
+        auto render_pass_begin_info = vk::RenderPassBeginInfo(
+            *render_pass,                // renderPass
+            *swap_chain_framebuffers[i], // framebuffer
+            vk::Rect2D(                  // renderArea
+                {0, 0},                  // offset
+                swap_chain_extent        // extent
+                ),
+            1,           // clearValueCount
+            &clear_color // *clearValues
+        );
+        command_buffers[i]->beginRenderPass(render_pass_begin_info, vk::SubpassContents::eInline);
+
+        command_buffers[i]->bindPipeline(vk::PipelineBindPoint::eGraphics, *graphics_pipeline);
+        command_buffers[i]->draw(
+            3, // vertexCount
+            1, //  instanceCount
+            0, // firstVertex
+            0  // firstInstance
+        );
+        command_buffers[i]->endRenderPass();
+        command_buffers[i]->end();
     }
 }
 
