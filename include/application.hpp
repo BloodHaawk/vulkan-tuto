@@ -141,6 +141,7 @@ class Application
     std::vector<vk::UniqueSemaphore> image_available_semaphores;
     std::vector<vk::UniqueSemaphore> render_finished_semaphores;
     std::vector<vk::UniqueFence> in_flight_fences;
+    std::vector<vk::UniqueFence> images_in_flight;
     size_t current_frame = 0;
 
     void initVulkan()

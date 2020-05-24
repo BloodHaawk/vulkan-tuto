@@ -553,6 +553,7 @@ void Application::createSyncObjects()
     image_available_semaphores.resize(max_frames_in_flight);
     render_finished_semaphores.resize(max_frames_in_flight);
     in_flight_fences.resize(max_frames_in_flight);
+    images_in_flight.resize(swap_chain_images.size());
 
     for (size_t i = 0; i < max_frames_in_flight; i++) {
         image_available_semaphores[i] = device->createSemaphoreUnique(vk::SemaphoreCreateInfo());
@@ -564,9 +565,14 @@ void Application::createSyncObjects()
 void Application::drawFrame()
 {
     device->waitForFences(*in_flight_fences[current_frame], VK_TRUE, UINT64_MAX);
-    device->resetFences(*in_flight_fences[current_frame]);
 
     uint32_t image_index = device->acquireNextImageKHR(*swap_chain, UINT64_MAX, *image_available_semaphores[current_frame], nullptr).value;
+    // Check if a previous frame is using this image
+    if (*images_in_flight[image_index] != vk::Fence(nullptr)) {
+        device->waitForFences(*images_in_flight[image_index], VK_TRUE, UINT64_MAX);
+    }
+    // Marked the image as now being used by this frame
+    *images_in_flight[image_index] = *in_flight_fences[current_frame];
 
     vk::Semaphore wait_semaphores[] = {*image_available_semaphores[current_frame]};
     vk::PipelineStageFlags wait_stages[] = {vk::PipelineStageFlagBits::eColorAttachmentOutput};
@@ -581,6 +587,7 @@ void Application::drawFrame()
         signal_semaphores               // *signalSemaphores
     );
 
+    device->resetFences(*in_flight_fences[current_frame]);
     graphics_queue.submit(submit_info, *in_flight_fences[current_frame]);
 
     auto present_info = vk::PresentInfoKHR(
