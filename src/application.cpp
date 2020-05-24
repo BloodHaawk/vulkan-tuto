@@ -467,6 +467,27 @@ void Application::createGraphicsPipeline()
     graphics_pipeline = device->createGraphicsPipelineUnique(nullptr, graphics_pipeline_create_info);
 }
 
+void Application::createFramebuffers()
+{
+    swap_chain_framebuffers.resize(swap_chain_image_views.size());
+
+    for (size_t i = 0; i < swap_chain_image_views.size(); i++) {
+        vk::ImageView attachments[] = {*swap_chain_image_views[i]};
+
+        auto framebuffer_create_info = vk::FramebufferCreateInfo(
+            {},                       //flags
+            *render_pass,             // renderPass
+            1,                        // attachmentCount
+            attachments,              // *attachments
+            swap_chain_extent.width,  // width
+            swap_chain_extent.height, // height
+            1                         // layers
+        );
+
+        swap_chain_framebuffers[i] = device->createFramebufferUnique(framebuffer_create_info);
+    }
+}
+
 void Application::mainLoop()
 {
     while (!glfwWindowShouldClose(window)) {

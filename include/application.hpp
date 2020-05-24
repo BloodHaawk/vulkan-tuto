@@ -128,6 +128,7 @@ class Application
     vk::Format swap_chain_image_format;
     vk::Extent2D swap_chain_extent;
     std::vector<vk::UniqueImageView> swap_chain_image_views;
+    std::vector<vk::UniqueFramebuffer> swap_chain_framebuffers;
 
     vk::UniqueRenderPass render_pass;
     vk::UniquePipelineLayout pipeline_layout;
@@ -144,6 +145,7 @@ class Application
         createImageViews();
         createRenderPass();
         createGraphicsPipeline();
+        createFramebuffers();
     }
 
     void createInstance();
@@ -155,6 +157,7 @@ class Application
     void createImageViews();
     void createRenderPass();
     void createGraphicsPipeline();
+    void createFramebuffers();
 
     void mainLoop();
 };
