@@ -70,7 +70,7 @@ void Application::createInstance()
     );
 
     instance = vk::createInstanceUnique(create_info);
-    dldy.init(*instance);
+    dldy.init(*instance, vkGetInstanceProcAddr);
 }
 
 static VKAPI_ATTR vk::Bool32 VKAPI_CALL
